@@ -1,0 +1,32 @@
+{
+	"schemaVersion": 1,
+	"id": "player-ping",
+	"version": "${version}",
+	"name": "Player Ping",
+	"description": "Check player ping and IP addresses on your Fabric server. A server-side port of the PingPlayer Bukkit plugin.",
+	"authors": [
+		"HoneyBerries",
+		"Pablo Barrera"
+	],
+	"contact": {
+		"homepage": "https://github.com/HoneyBerries/PingPlayer",
+		"sources": "https://github.com/HoneyBerries/PingPlayer"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/player-ping/icon.png",
+	"environment": "server",
+	"entrypoints": {
+		"server": [
+			"player.ping.PlayerPing"
+		]
+	},
+	"mixins": [
+		"player-ping.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.18.4",
+		"minecraft": "~1.21",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

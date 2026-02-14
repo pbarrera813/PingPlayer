@@ -1,0 +1,11 @@
+{
+	"required": true,
+	"package": "player.ping.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"ServerPlayerMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
