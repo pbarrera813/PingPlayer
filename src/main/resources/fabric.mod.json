@@ -3,10 +3,10 @@
 	"id": "player-ping",
 	"version": "${version}",
 	"name": "Player Ping",
-	"description": "Check player ping and IP addresses on your Fabric server. A server-side port of the PingPlayer Bukkit plugin.",
+	"description": "Check player ping and IP addresses on your server. A server-side port of the PingPlayer paper plugin.",
 	"authors": [
-		"HoneyBerries",
-		"Pablo Barrera"
+		"HoneyBerries (original idea)",
+		"Phoenix_28 (mod port)"
 	],
 	"contact": {
 		"homepage": "https://github.com/HoneyBerries/PingPlayer",
