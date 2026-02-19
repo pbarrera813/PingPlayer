@@ -2,8 +2,6 @@ package player.ping;
 
 import net.minecraft.ChatFormatting;
 
-import java.util.List;
-
 public final class PingUtils {
 
     private PingUtils() {}
@@ -11,15 +9,25 @@ public final class PingUtils {
     public record PingQuality(ChatFormatting color, String quality) {}
 
     public static PingQuality getPingQuality(int ping) {
-        List<Integer> thresholds = PingSettings.getInstance().getPingThresholds();
-        if (ping <= thresholds.get(0)) return new PingQuality(ChatFormatting.GREEN, "excellent");
-        if (ping <= thresholds.get(1)) return new PingQuality(ChatFormatting.YELLOW, "good");
-        if (ping <= thresholds.get(2)) return new PingQuality(ChatFormatting.GOLD, "ok");
-        if (ping <= thresholds.get(3)) return new PingQuality(ChatFormatting.RED, "bad");
-        return new PingQuality(ChatFormatting.DARK_RED, "terrible");
+        PingSettings.ThresholdTier tier = PingSettings.getInstance().getThresholdTier(ping);
+        return new PingQuality(getThresholdColor(tier), getThresholdLabel(tier));
     }
 
     public static ChatFormatting getPingColor(int ping) {
         return getPingQuality(ping).color();
+    }
+
+    public static ChatFormatting getThresholdColor(PingSettings.ThresholdTier tier) {
+        return switch (tier) {
+            case EXCELLENT -> ChatFormatting.GREEN;
+            case GOOD -> ChatFormatting.YELLOW;
+            case FAIR -> ChatFormatting.GOLD;
+            case POOR -> ChatFormatting.RED;
+            case TERRIBLE -> ChatFormatting.DARK_RED;
+        };
+    }
+
+    public static String getThresholdLabel(PingSettings.ThresholdTier tier) {
+        return tier.key();
     }
 }
