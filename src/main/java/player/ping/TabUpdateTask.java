@@ -9,15 +9,19 @@ import java.util.List;
 
 public final class TabUpdateTask {
 
+    private static final long DEBUG_TAB_THROTTLE_MS = 5000L;
+
     private TabUpdateTask() {}
 
     public static void onEndTick(MinecraftServer server) {
         if (!PingSettings.getInstance().getShowPingOnTab()) {
+            FabricCompat.debugThrottled("tab/tick", "tab-disabled", DEBUG_TAB_THROTTLE_MS, "Skipped tab update tick because showPingOnTab=false.");
             return;
         }
 
         List<ServerPlayer> players = server.getPlayerList().getPlayers();
         if (players.isEmpty()) {
+            FabricCompat.debugThrottled("tab/tick", "tab-empty", DEBUG_TAB_THROTTLE_MS, "Skipped tab update tick because there are no online players.");
             return;
         }
 
@@ -29,5 +33,7 @@ public final class TabUpdateTask {
         );
 
         server.getPlayerList().broadcastAll(packet);
+        FabricCompat.debugThrottled("tab/tick", "tab-broadcast", DEBUG_TAB_THROTTLE_MS,
+                "Broadcasted tab display-name refresh packet for %d online players.", players.size());
     }
 }
