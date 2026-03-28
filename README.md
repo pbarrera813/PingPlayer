@@ -7,21 +7,32 @@ Server-side Minecraft mod to check latency and IP addresses in-game. This projec
 - Fabric (root project)
 - NeoForge (`pingplayer-neoforge/`)
 
-## What's New in 1.1.0
+## What's New in 1.1.1
 
-- Added operator threshold management command: `/pingplayer threshold ...`
-- Added chat-safe comparator keywords: `equal-or-more`, `equal-or-less`, `equal`
-- Threshold updates apply immediately (no reload command required)
-- Added tab-completion and suggestion hints for threshold editing
-- Added overlap validation so two tiers cannot share the same range
-- Added legacy-config migration support (`medium`/`bad` -> `fair`/`poor`)
+- Fixed Fabric server compatibility on Minecraft `1.21.11`
+- Kept compatibility across the `1.21.x` line (validated on `1.21` and `1.21.11`)
+- Fixed admin command detection for in-game operators
+- Added admin compatibility for LuckPerms-style setups:
+  - vanilla OP support
+  - `playerping.admin` permission-node support (when permissions API is available)
+  - minimum LuckPerms weight fallback (`minLuckPermsWeight`, default `8`)
+- Added `/pingplayer debug` toggle for full server-side diagnostics
+- Added `/pingplayer dump` to generate full diagnostic reports
+- Updated command help styling for cleaner readability
+- Added `/ip` (self lookup) for all players
 
 ## Features
 
-- `/ping` and `/ping <player>` latency checks
-- `/ip <player>` for operators
+- `/ping` latency check for all players
+- `/ping <player>` latency check for admins
+- `/ip` public IP lookup for all players
+- `/ip <player>` public IP lookup for admins
 - Color-coded ping quality in command output and tab list
-- Config stored at `config/player-ping/config.json`
+- Threshold editing with overlap validation and live apply
+- Full debug tracing mode (`/pingplayer debug`)
+- Diagnostic dump generation (`/pingplayer dump`)
+- Config stored at `config/player-ping/config.json` (with header comments)
+- Dump reports stored at `config/player-ping/crash_reports/`
 - Server-side only (no client mod required)
 
 ## Commands
@@ -29,14 +40,17 @@ Server-side Minecraft mod to check latency and IP addresses in-game. This projec
 | Command | Description | Permission |
 |---------|-------------|------------|
 | `/ping` | Check your own ping | All players |
-| `/ping <player>` | Check another player's ping | All players |
-| `/ip <player>` | View a player's IP address | Operators (level 2) |
-| `/pingplayer help` | Display help | Operators (level 2) |
-| `/pingplayer threshold <tier> equal-or-more <value>` | Set tier to >= value | Operators (level 2) |
-| `/pingplayer threshold <tier> equal-or-less <value>` | Set tier to <= value | Operators (level 2) |
-| `/pingplayer threshold <tier> equal <value>` | Set tier to exact value | Operators (level 2) |
-| `/pingplayer threshold <tier>` | Show current tier range | Operators (level 2) |
-| `/pingplayer threshold <tier> <min> <max>` | Set tier to interval | Operators (level 2) |
+| `/ping <player>` | Check another player's ping | Admins |
+| `/ip` | View your own public IP | All players |
+| `/ip <player>` | View a player's public IP | Admins |
+| `/pingplayer help` | Display admin command help | Admins |
+| `/pingplayer debug` | Toggle full debug mode | Admins |
+| `/pingplayer dump` | Generate a diagnostic dump file | Admins |
+| `/pingplayer threshold <tier> equal-or-more <value>` | Set tier to >= value | Admins |
+| `/pingplayer threshold <tier> equal-or-less <value>` | Set tier to <= value | Admins |
+| `/pingplayer threshold <tier> equal <value>` | Set tier to exact value | Admins |
+| `/pingplayer threshold <tier>` | Show current tier range | Admins |
+| `/pingplayer threshold <tier> <min> <max>` | Set tier to interval | Admins |
 
 `tier` values: `excellent`, `good`, `fair`, `poor`, `terrible`
 
@@ -44,6 +58,14 @@ Examples:
 
 - `/pingplayer threshold terrible equal-or-more 500`
 - `/pingplayer threshold fair 101 250`
+- `/pingplayer debug`
+- `/pingplayer dump`
+
+Admin access notes:
+
+- Admin checks accept vanilla OP users.
+- On servers with a permissions stack, `playerping.admin` can grant access.
+- LuckPerms role-weight fallback is supported through `minLuckPermsWeight` (default `8`).
 
 ## Default Thresholds
 
@@ -62,7 +84,7 @@ gradlew build
 ```
 
 Output:
-- `build/libs/player-ping-1.1.0.jar`
+- `build/libs/player-ping-1.1.1.jar`
 
 ### NeoForge
 
@@ -77,6 +99,7 @@ Output:
 
 - Minecraft: `1.21.x`
 - Java: `21`
+- Requires Fabric Loader and Fabric API on Fabric servers
 
 ## Credits
 
