@@ -17,15 +17,18 @@ public class PlayerPing implements DedicatedServerModInitializer {
 
         // Load configuration
         PingSettings.getInstance().load();
+        FabricCompat.debug("startup", "Debug mode is enabled. Extended diagnostics will be logged.");
 
         // Register commands
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             PingCommand.register(dispatcher);
             IPCommand.register(dispatcher);
             PingPlayerCommand.register(dispatcher);
+            FabricCompat.debug("startup", "Registered commands: /ping, /ip, /pingplayer");
         });
 
         // Register tab update task on server tick
         ServerTickEvents.END_SERVER_TICK.register(TabUpdateTask::onEndTick);
+        FabricCompat.debug("startup", "Registered tab-list update tick event.");
     }
 }
