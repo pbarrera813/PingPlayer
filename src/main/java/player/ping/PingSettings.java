@@ -8,10 +8,11 @@ import com.google.gson.JsonParser;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.IOException;
-import java.io.Reader;
 import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.StringJoiner;
@@ -63,6 +64,8 @@ public class PingSettings {
 
     private Map<ThresholdTier, ThresholdRange> pingThresholds = new EnumMap<>(DEFAULT_THRESHOLDS);
     private boolean showPingOnTab = true;
+    private boolean debugPermissionChecks = false;
+    private int minLuckPermsWeight = 8;
     private Path configFile;
 
     private PingSettings() {}
@@ -72,8 +75,9 @@ public class PingSettings {
     }
 
     public synchronized void load() {
-        Path configDir = FabricLoader.getInstance().getConfigDir().resolve("player-ping");
+        Path configDir = getConfigDirectory();
         configFile = configDir.resolve("config.json");
+        FabricCompat.debug("config", "Loading config from %s", configFile);
 
         try {
             if (!Files.exists(configDir)) {
@@ -84,24 +88,46 @@ public class PingSettings {
                 pingThresholds = new EnumMap<>(DEFAULT_THRESHOLDS);
                 saveCurrentConfig();
                 PlayerPing.LOGGER.info("Created default configuration file.");
+                FabricCompat.debug("config", "Created new default config file at %s", configFile);
                 logConfiguration();
                 return;
             }
 
-            try (Reader reader = Files.newBufferedReader(configFile)) {
-                JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
-                pingThresholds = loadThresholds(root.get("pingThresholds"));
-                if (root.has("showPingOnTab") && root.get("showPingOnTab").isJsonPrimitive()) {
-                    showPingOnTab = root.get("showPingOnTab").getAsBoolean();
+            List<String> rawLines = Files.readAllLines(configFile, StandardCharsets.UTF_8);
+            StringBuilder jsonBuilder = new StringBuilder();
+            for (String line : rawLines) {
+                String trimmed = line.trim();
+                if (trimmed.startsWith("#") || trimmed.startsWith("//")) {
+                    continue;
+                }
+                jsonBuilder.append(line).append(System.lineSeparator());
+            }
+
+            JsonObject root = JsonParser.parseString(jsonBuilder.toString()).getAsJsonObject();
+            pingThresholds = loadThresholds(root.get("pingThresholds"));
+            if (root.has("showPingOnTab") && root.get("showPingOnTab").isJsonPrimitive()) {
+                showPingOnTab = root.get("showPingOnTab").getAsBoolean();
+            }
+            if (root.has("debugPermissionChecks") && root.get("debugPermissionChecks").isJsonPrimitive()) {
+                debugPermissionChecks = root.get("debugPermissionChecks").getAsBoolean();
+            }
+            if (root.has("minLuckPermsWeight") && root.get("minLuckPermsWeight").isJsonPrimitive()) {
+                int loadedWeight = root.get("minLuckPermsWeight").getAsInt();
+                if (loadedWeight >= 0) {
+                    minLuckPermsWeight = loadedWeight;
                 }
             }
 
             // Re-save to normalize any legacy/partial configuration.
             saveCurrentConfig();
+            FabricCompat.debug("config", "Config parsed and normalized successfully.");
         } catch (Exception e) {
             PlayerPing.LOGGER.error("Error loading configuration! Using defaults.", e);
             pingThresholds = new EnumMap<>(DEFAULT_THRESHOLDS);
             showPingOnTab = true;
+            debugPermissionChecks = false;
+            minLuckPermsWeight = 8;
+            FabricCompat.debug("config", "Fell back to defaults after config load error: %s", e.getClass().getSimpleName());
         }
 
         logConfiguration();
@@ -122,6 +148,7 @@ public class PingSettings {
         }
 
         ThresholdRange newRange = new ThresholdRange(min, max);
+        ThresholdRange previousRange = pingThresholds.getOrDefault(tier, DEFAULT_THRESHOLDS.get(tier));
         for (ThresholdTier otherTier : ThresholdTier.values()) {
             if (otherTier == tier) {
                 continue;
@@ -135,6 +162,7 @@ public class PingSettings {
 
         pingThresholds.put(tier, newRange);
         saveCurrentConfig();
+        FabricCompat.debug("threshold", "Updated '%s' threshold from %s to %s", tier.key(), previousRange.describe(), newRange.describe());
     }
 
     public synchronized ThresholdTier getThresholdTier(int ping) {
@@ -154,9 +182,27 @@ public class PingSettings {
         return showPingOnTab;
     }
 
+    public synchronized Path getConfigDirectory() {
+        return FabricLoader.getInstance().getConfigDir().resolve("player-ping");
+    }
+
+    public synchronized boolean getDebugPermissionChecks() {
+        return debugPermissionChecks;
+    }
+
+    public synchronized int getMinLuckPermsWeight() {
+        return minLuckPermsWeight;
+    }
+
+    public synchronized void setDebugPermissionChecks(boolean enabled) throws IOException {
+        debugPermissionChecks = enabled;
+        saveCurrentConfig();
+        PlayerPing.LOGGER.info("PingPlayer debug mode set to: {}", enabled);
+    }
+
     private void saveCurrentConfig() throws IOException {
         if (configFile == null) {
-            Path configDir = FabricLoader.getInstance().getConfigDir().resolve("player-ping");
+            Path configDir = getConfigDirectory();
             configFile = configDir.resolve("config.json");
             if (!Files.exists(configDir)) {
                 Files.createDirectories(configDir);
@@ -180,8 +226,14 @@ public class PingSettings {
 
         root.add("pingThresholds", thresholdsObject);
         root.addProperty("showPingOnTab", showPingOnTab);
+        root.addProperty("debugPermissionChecks", debugPermissionChecks);
+        root.addProperty("minLuckPermsWeight", minLuckPermsWeight);
 
         try (Writer writer = Files.newBufferedWriter(configFile)) {
+            writer.write("# PingPlayer mod created by Phoenix_28, port to Fabric of the original paper plugin by HoneyBerries");
+            writer.write(System.lineSeparator());
+            writer.write("# Edit this in-game, do not touch this file manually!");
+            writer.write(System.lineSeparator());
             GSON.toJson(root, writer);
         }
     }
@@ -297,6 +349,8 @@ public class PingSettings {
         PlayerPing.LOGGER.info("Config loaded successfully!");
         PlayerPing.LOGGER.info("Ping thresholds: {}", joiner);
         PlayerPing.LOGGER.info("Showing ping on tab: {}", showPingOnTab);
+        PlayerPing.LOGGER.info("Debug mode: {}", debugPermissionChecks);
+        PlayerPing.LOGGER.info("Minimum LuckPerms weight for admin access: {}", minLuckPermsWeight);
     }
 
     private static Map<ThresholdTier, ThresholdRange> createDefaultThresholds() {
