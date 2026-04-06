@@ -17,10 +17,11 @@ public class PlayerPing {
     public PlayerPing() {
         LOGGER.info("PingPlayer has been enabled. You can ping players using /ping <playername>");
 
-        // Load configuration
+        // Load configuration.
         PingSettings.getInstance().load();
+        NeoForgeCompat.debug("startup", "Debug mode is enabled. Extended diagnostics will be logged.");
 
-        // Register this instance for NeoForge event bus events
+        // Register this instance for NeoForge event bus events.
         NeoForge.EVENT_BUS.register(this);
     }
 
@@ -29,6 +30,7 @@ public class PlayerPing {
         PingCommand.register(event.getDispatcher());
         IPCommand.register(event.getDispatcher());
         PingPlayerCommand.register(event.getDispatcher());
+        NeoForgeCompat.debug("startup", "Registered commands: /ping, /ip, /pingplayer");
     }
 
     @SubscribeEvent
