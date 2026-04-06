@@ -11,6 +11,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 
 public final class PingPlayerCommand {
@@ -18,8 +19,12 @@ public final class PingPlayerCommand {
     private PingPlayerCommand() {}
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("pingplayer")
-                .requires(source -> source.hasPermission(2))
+        dispatcher.register(buildCommandTree("pingplayer"));
+    }
+
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> buildCommandTree(String name) {
+        return Commands.literal(name)
+                .requires(NeoForgeCompat::hasAdminPermission)
                 .executes(PingPlayerCommand::executeHelp)
                 .then(Commands.literal("help")
                         .executes(PingPlayerCommand::executeHelp))
@@ -29,7 +34,10 @@ public final class PingPlayerCommand {
                         .then(buildThresholdArgument(PingSettings.ThresholdTier.FAIR))
                         .then(buildThresholdArgument(PingSettings.ThresholdTier.POOR))
                         .then(buildThresholdArgument(PingSettings.ThresholdTier.TERRIBLE)))
-        );
+                .then(Commands.literal("debug")
+                        .executes(PingPlayerCommand::executeDebugToggle))
+                .then(Commands.literal("dump")
+                        .executes(PingPlayerCommand::executeDump));
     }
 
     private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> buildThresholdArgument(PingSettings.ThresholdTier tier) {
@@ -55,6 +63,11 @@ public final class PingPlayerCommand {
     }
 
     private static int executeShowThreshold(CommandContext<CommandSourceStack> context, PingSettings.ThresholdTier tier) {
+        if (!ensureAdminPermission(context.getSource())) {
+            return 0;
+        }
+        NeoForgeCompat.debug("command/pingplayer", "Threshold query by '%s' for tier '%s'.", context.getSource().getTextName(), tier.key());
+
         PingSettings.ThresholdRange range = PingSettings.getInstance().getThresholdRange(tier);
         ChatFormatting color = PingUtils.getThresholdColor(tier);
         Component response = Component.literal("Current threshold for ")
@@ -68,6 +81,12 @@ public final class PingPlayerCommand {
     }
 
     private static int executeComparisonUpdate(CommandContext<CommandSourceStack> context, PingSettings.ThresholdTier tier, String mode) {
+        if (!ensureAdminPermission(context.getSource())) {
+            return 0;
+        }
+        NeoForgeCompat.debug("command/pingplayer", "Threshold comparison update requested by '%s': tier='%s', mode='%s'.",
+                context.getSource().getTextName(), tier.key(), mode);
+
         int value = IntegerArgumentType.getInteger(context, "value");
 
         Integer min;
@@ -92,6 +111,7 @@ public final class PingPlayerCommand {
             }
             default -> {
                 context.getSource().sendFailure(Component.literal("Invalid mode. Use: equal-or-more, equal-or-less, or equal."));
+                NeoForgeCompat.debug("command/pingplayer", "Rejected threshold update due to invalid mode '%s'.", mode);
                 return 0;
             }
         }
@@ -100,6 +120,7 @@ public final class PingPlayerCommand {
             PingSettings.getInstance().updateThreshold(tier, min, max);
         } catch (IllegalArgumentException | IOException e) {
             context.getSource().sendFailure(Component.literal("Failed to update threshold: " + e.getMessage()));
+            NeoForgeCompat.debug("command/pingplayer", "Threshold update failed for '%s': %s", context.getSource().getTextName(), e.getMessage());
             return 0;
         }
 
@@ -111,15 +132,24 @@ public final class PingPlayerCommand {
                 .append(Component.literal(" ms."));
 
         context.getSource().sendSuccess(() -> response, true);
+        NeoForgeCompat.debug("command/pingplayer", "Threshold comparison update applied by '%s': tier='%s', mode='%s', value=%d",
+                context.getSource().getTextName(), tier.key(), mode, value);
         return 1;
     }
 
     private static int executeRangeUpdate(CommandContext<CommandSourceStack> context, PingSettings.ThresholdTier tier) {
+        if (!ensureAdminPermission(context.getSource())) {
+            return 0;
+        }
+        NeoForgeCompat.debug("command/pingplayer", "Threshold range update requested by '%s' for tier '%s'.",
+                context.getSource().getTextName(), tier.key());
+
         int min = IntegerArgumentType.getInteger(context, "min");
         int max = IntegerArgumentType.getInteger(context, "max");
 
         if (min > max) {
             context.getSource().sendFailure(Component.literal("Invalid range: minimum value cannot be greater than maximum value. Example: /pingplayer threshold fair 101 250"));
+            NeoForgeCompat.debug("command/pingplayer", "Rejected range update for tier '%s': min=%d max=%d", tier.key(), min, max);
             return 0;
         }
 
@@ -127,6 +157,7 @@ public final class PingPlayerCommand {
             PingSettings.getInstance().updateThreshold(tier, min, max);
         } catch (IllegalArgumentException | IOException e) {
             context.getSource().sendFailure(Component.literal("Failed to update threshold: " + e.getMessage()));
+            NeoForgeCompat.debug("command/pingplayer", "Range update failed for '%s': %s", context.getSource().getTextName(), e.getMessage());
             return 0;
         }
 
@@ -140,38 +171,121 @@ public final class PingPlayerCommand {
                 .append(Component.literal(" ms."));
 
         context.getSource().sendSuccess(() -> response, true);
+        NeoForgeCompat.debug("command/pingplayer", "Threshold range update applied by '%s': tier='%s', min=%d, max=%d",
+                context.getSource().getTextName(), tier.key(), min, max);
         return 1;
     }
 
     private static int executeHelp(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
-        source.sendSuccess(() -> Component.literal("----- PingPlayer Help -----")
-                .withStyle(style -> style.withColor(ChatFormatting.GOLD)), false);
-        source.sendSuccess(() -> Component.literal("/ping")
-                .withStyle(style -> style.withColor(ChatFormatting.AQUA))
-                .append(Component.literal(" - Check your own ping.")
-                        .withStyle(style -> style.withColor(ChatFormatting.GOLD))), false);
-        source.sendSuccess(() -> Component.literal("/ping <player>")
-                .withStyle(style -> style.withColor(ChatFormatting.AQUA))
-                .append(Component.literal(" - Check another player's ping.")
-                        .withStyle(style -> style.withColor(ChatFormatting.GOLD))), false);
-        source.sendSuccess(() -> Component.literal("/ip <player>")
-                .withStyle(style -> style.withColor(ChatFormatting.AQUA))
-                .append(Component.literal(" - View a player's IP address.")
-                        .withStyle(style -> style.withColor(ChatFormatting.GOLD))), false);
-        source.sendSuccess(() -> Component.literal("/pingplayer threshold <excellent|good|fair|poor|terrible> <equal-or-more|equal-or-less|equal> <value>")
-                .withStyle(style -> style.withColor(ChatFormatting.AQUA))
-                .append(Component.literal(" - Set a threshold using comparison text.")
-                        .withStyle(style -> style.withColor(ChatFormatting.GOLD))), false);
-        source.sendSuccess(() -> Component.literal("/pingplayer threshold <excellent|good|fair|poor|terrible> <min> <max>")
-                .withStyle(style -> style.withColor(ChatFormatting.AQUA))
-                .append(Component.literal(" - Set a threshold interval.")
-                        .withStyle(style -> style.withColor(ChatFormatting.GOLD))), false);
-        source.sendSuccess(() -> Component.literal("Examples: /pingplayer threshold terrible equal-or-more 500, /pingplayer threshold fair 101 250")
-                .withStyle(style -> style.withColor(ChatFormatting.GRAY)), false);
-        source.sendSuccess(() -> Component.literal("Threshold changes are applied immediately.")
+        if (!ensureAdminPermission(source)) {
+            return 0;
+        }
+        NeoForgeCompat.debug("command/pingplayer", "Displayed /pingplayer help for '%s'.", source.getTextName());
+
+        source.sendSuccess(() -> Component.literal("===== PingPlayer Commands =====")
+                .withStyle(style -> style.withColor(ChatFormatting.DARK_AQUA)), false);
+        source.sendSuccess(() -> Component.literal("Core")
+                .withStyle(style -> style.withColor(ChatFormatting.BLUE)), false);
+        source.sendSuccess(() -> Component.literal("  /ping")
+                .withStyle(style -> style.withColor(ChatFormatting.AQUA).withBold(true))
+                .append(Component.literal("  Check your own ping.")
+                        .withStyle(style -> style.withColor(ChatFormatting.GRAY).withBold(false))), false);
+        source.sendSuccess(() -> Component.literal("  /ip")
+                .withStyle(style -> style.withColor(ChatFormatting.AQUA).withBold(true))
+                .append(Component.literal("  View your own public IP.")
+                        .withStyle(style -> style.withColor(ChatFormatting.GRAY).withBold(false))), false);
+        source.sendSuccess(() -> Component.literal("Admin")
+                .withStyle(style -> style.withColor(ChatFormatting.BLUE)), false);
+        source.sendSuccess(() -> Component.literal("  /ping <player>")
+                .withStyle(style -> style.withColor(ChatFormatting.AQUA).withBold(true))
+                .append(Component.literal("  Check another player's ping.")
+                        .withStyle(style -> style.withColor(ChatFormatting.GRAY).withBold(false))), false);
+        source.sendSuccess(() -> Component.literal("  /ip <player>")
+                .withStyle(style -> style.withColor(ChatFormatting.AQUA).withBold(true))
+                .append(Component.literal("  View another player's public IP.")
+                        .withStyle(style -> style.withColor(ChatFormatting.GRAY).withBold(false))), false);
+        source.sendSuccess(() -> Component.literal("  /pingplayer threshold <tier> <equal-or-more|equal-or-less|equal> <value>")
+                .withStyle(style -> style.withColor(ChatFormatting.AQUA).withBold(true))
+                .append(Component.literal("  Set threshold with comparison mode.")
+                        .withStyle(style -> style.withColor(ChatFormatting.GRAY).withBold(false))), false);
+        source.sendSuccess(() -> Component.literal("  /pingplayer threshold <tier> <min> <max>")
+                .withStyle(style -> style.withColor(ChatFormatting.AQUA).withBold(true))
+                .append(Component.literal("  Set threshold using a range.")
+                        .withStyle(style -> style.withColor(ChatFormatting.GRAY).withBold(false))), false);
+        source.sendSuccess(() -> Component.literal("  /pingplayer debug")
+                .withStyle(style -> style.withColor(ChatFormatting.AQUA).withBold(true))
+                .append(Component.literal("  Toggle full debug mode.")
+                        .withStyle(style -> style.withColor(ChatFormatting.GRAY).withBold(false))), false);
+        source.sendSuccess(() -> Component.literal("  /pingplayer dump")
+                .withStyle(style -> style.withColor(ChatFormatting.AQUA).withBold(true))
+                .append(Component.literal("  Generate a full diagnostic dump file.")
+                        .withStyle(style -> style.withColor(ChatFormatting.GRAY).withBold(false))), false);
+        source.sendSuccess(() -> Component.literal("Tips")
+                .withStyle(style -> style.withColor(ChatFormatting.BLUE)), false);
+        source.sendSuccess(() -> Component.literal("  Example: /pingplayer threshold terrible equal-or-more 500")
+                .withStyle(style -> style.withColor(ChatFormatting.DARK_GRAY)), false);
+        source.sendSuccess(() -> Component.literal("  Threshold changes apply immediately.")
                 .withStyle(style -> style.withColor(ChatFormatting.GREEN)), false);
         return 1;
+    }
+
+    private static boolean ensureAdminPermission(CommandSourceStack source) {
+        if (NeoForgeCompat.hasAdminPermission(source)) {
+            return true;
+        }
+
+        source.sendFailure(Component.literal("Only server admins can use /pingplayer."));
+        NeoForgeCompat.debug("command/pingplayer", "Denied /pingplayer access for '%s'.", source.getTextName());
+        return false;
+    }
+
+    private static int executeDebugToggle(CommandContext<CommandSourceStack> context) {
+        if (!ensureAdminPermission(context.getSource())) {
+            return 0;
+        }
+        NeoForgeCompat.debug("command/pingplayer", "Debug toggle requested by '%s'.", context.getSource().getTextName());
+
+        boolean current = PingSettings.getInstance().getDebugPermissionChecks();
+        return setDebugMode(context.getSource(), !current);
+    }
+
+    private static int setDebugMode(CommandSourceStack source, boolean enabled) {
+        try {
+            PingSettings.getInstance().setDebugPermissionChecks(enabled);
+        } catch (IOException e) {
+            source.sendFailure(Component.literal("Failed to update debug mode: " + e.getMessage()));
+            return 0;
+        }
+
+        ChatFormatting statusColor = enabled ? ChatFormatting.GREEN : ChatFormatting.RED;
+        source.sendSuccess(() -> Component.literal("PingPlayer debug mode is now ")
+                .append(Component.literal(enabled ? "ENABLED" : "DISABLED")
+                        .withStyle(style -> style.withColor(statusColor)))
+                .append(Component.literal(".")), true);
+        NeoForgeCompat.debug("command/pingplayer", "Debug mode changed by '%s' -> %s", source.getTextName(), enabled ? "ENABLED" : "DISABLED");
+        return 1;
+    }
+
+    private static int executeDump(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        if (!ensureAdminPermission(source)) {
+            return 0;
+        }
+
+        NeoForgeCompat.debug("command/pingplayer", "Diagnostic dump requested by '%s'.", source.getTextName());
+        try {
+            Path dumpPath = PingDumpReport.generate(source);
+            source.sendSuccess(() -> Component.literal("PingPlayer diagnostic dump generated: ")
+                    .withStyle(style -> style.withColor(ChatFormatting.GREEN))
+                    .append(Component.literal(dumpPath.toString())
+                            .withStyle(style -> style.withColor(ChatFormatting.AQUA))), false);
+            return 1;
+        } catch (Exception e) {
+            source.sendFailure(Component.literal("Failed to generate diagnostic dump: " + e.getMessage()));
+            NeoForgeCompat.debug("command/pingplayer", "Diagnostic dump failed for '%s': %s", source.getTextName(), e.getMessage());
+            return 0;
+        }
     }
 
     private static CompletableFuture<Suggestions> suggestComparisonValue(PingSettings.ThresholdTier tier, String mode, SuggestionsBuilder builder) {
