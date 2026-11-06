@@ -17,6 +17,7 @@ pluginManagement {
 	}
 }
 
+include 'fabric-legacy'
 include 'pingplayer-forge'
 include 'pingplayer-neoforge'
 

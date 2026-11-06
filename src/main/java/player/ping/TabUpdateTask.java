@@ -14,7 +14,12 @@ public final class TabUpdateTask {
     private TabUpdateTask() {}
 
     public static void onEndTick(MinecraftServer server) {
-        if (!PingSettings.getInstance().getShowPingOnTab()) {
+        PingSettings settings = PingSettings.getInstance();
+        if (server.getTickCount() % settings.getTabRefreshTicks() != 0) {
+            return;
+        }
+
+        if (!settings.getShowPingOnTab()) {
             FabricCompat.debugThrottled("tab/tick", "tab-disabled", DEBUG_TAB_THROTTLE_MS, "Skipped tab update tick because showPingOnTab=false.");
             return;
         }

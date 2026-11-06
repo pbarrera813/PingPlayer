@@ -1,0 +1,60 @@
+plugins {
+	id 'net.fabricmc.fabric-loom-remap'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = "${project.archives_base_name}-1.21.x"
+}
+
+repositories {
+	maven { url = 'https://maven.nucleoid.xyz/' }
+}
+
+sourceSets.main {
+	java.srcDirs = ['../src/main/java', '../src/legacy/java']
+	resources.srcDir '../src/main/resources'
+}
+
+loom {
+	mods {
+		"player-ping" {
+			sourceSet sourceSets.main
+		}
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.legacy_minecraft_version}"
+	mappings loom.officialMojangMappings()
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.legacy_fabric_api_version}"
+	modCompileOnly "eu.pb4:placeholder-api:2.4.2+1.21"
+}
+
+processResources {
+	def props = [version: project.version, minecraft_range: project.legacy_minecraft_range, java_min: '>=21', loader_min: project.legacy_loader_min]
+	inputs.properties props
+
+	filesMatching("fabric.mod.json") {
+		expand props
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 21
+}
+
+java {
+	withSourcesJar()
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+}
+
+jar {
+	from(rootProject.file("LICENSE")) {
+		rename { "${it}_${project.base.archivesName.get()}" }
+	}
+}

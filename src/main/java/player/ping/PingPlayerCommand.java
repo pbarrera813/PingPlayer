@@ -37,7 +37,9 @@ public final class PingPlayerCommand {
                 .then(Commands.literal("debug")
                         .executes(PingPlayerCommand::executeDebugToggle))
                 .then(Commands.literal("dump")
-                        .executes(PingPlayerCommand::executeDump));
+                        .executes(PingPlayerCommand::executeDump))
+                .then(Commands.literal("reload")
+                        .executes(PingPlayerCommand::executeReload));
     }
 
     private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> buildThresholdArgument(PingSettings.ThresholdTier tier) {
@@ -193,17 +195,21 @@ public final class PingPlayerCommand {
                         .withStyle(style -> style.withColor(ChatFormatting.GRAY).withBold(false))), false);
         source.sendSuccess(() -> Component.literal("  /ip")
                 .withStyle(style -> style.withColor(ChatFormatting.AQUA).withBold(true))
-                .append(Component.literal("  View your own public IP.")
+                .append(Component.literal("  View your own IP.")
                         .withStyle(style -> style.withColor(ChatFormatting.GRAY).withBold(false))), false);
         source.sendSuccess(() -> Component.literal("Admin")
                 .withStyle(style -> style.withColor(ChatFormatting.BLUE)), false);
+        source.sendSuccess(() -> Component.literal("  /ping list")
+                .withStyle(style -> style.withColor(ChatFormatting.AQUA).withBold(true))
+                .append(Component.literal("  List every online player's ping.")
+                        .withStyle(style -> style.withColor(ChatFormatting.GRAY).withBold(false))), false);
         source.sendSuccess(() -> Component.literal("  /ping <player>")
                 .withStyle(style -> style.withColor(ChatFormatting.AQUA).withBold(true))
                 .append(Component.literal("  Check another player's ping.")
                         .withStyle(style -> style.withColor(ChatFormatting.GRAY).withBold(false))), false);
         source.sendSuccess(() -> Component.literal("  /ip <player>")
                 .withStyle(style -> style.withColor(ChatFormatting.AQUA).withBold(true))
-                .append(Component.literal("  View another player's public IP.")
+                .append(Component.literal("  View another player's IP.")
                         .withStyle(style -> style.withColor(ChatFormatting.GRAY).withBold(false))), false);
         source.sendSuccess(() -> Component.literal("  /pingplayer threshold <tier> <equal-or-more|equal-or-less|equal> <value>")
                 .withStyle(style -> style.withColor(ChatFormatting.AQUA).withBold(true))
@@ -216,6 +222,10 @@ public final class PingPlayerCommand {
         source.sendSuccess(() -> Component.literal("  /pingplayer debug")
                 .withStyle(style -> style.withColor(ChatFormatting.AQUA).withBold(true))
                 .append(Component.literal("  Toggle full debug mode.")
+                        .withStyle(style -> style.withColor(ChatFormatting.GRAY).withBold(false))), false);
+        source.sendSuccess(() -> Component.literal("  /pingplayer reload")
+                .withStyle(style -> style.withColor(ChatFormatting.AQUA).withBold(true))
+                .append(Component.literal("  Reload config.json without restarting.")
                         .withStyle(style -> style.withColor(ChatFormatting.GRAY).withBold(false))), false);
         source.sendSuccess(() -> Component.literal("  /pingplayer dump")
                 .withStyle(style -> style.withColor(ChatFormatting.AQUA).withBold(true))
@@ -264,6 +274,25 @@ public final class PingPlayerCommand {
                         .withStyle(style -> style.withColor(statusColor)))
                 .append(Component.literal(".")), true);
         FabricCompat.debug("command/pingplayer", "Debug mode changed by '%s' -> %s", source.getTextName(), enabled ? "ENABLED" : "DISABLED");
+        return 1;
+    }
+
+    private static int executeReload(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        if (!ensureAdminPermission(source)) {
+            return 0;
+        }
+
+        try {
+            PingSettings.getInstance().reload();
+        } catch (Exception e) {
+            source.sendFailure(Component.literal("Reload failed, keeping the current config: " + e.getMessage()));
+            FabricCompat.debug("command/pingplayer", "Reload failed for '%s': %s", source.getTextName(), e.getMessage());
+            return 0;
+        }
+
+        source.sendSuccess(() -> Component.literal("PingPlayer config reloaded.")
+                .withStyle(style -> style.withColor(ChatFormatting.GREEN)), true);
         return 1;
     }
 

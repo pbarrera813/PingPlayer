@@ -115,6 +115,10 @@ public final class PingDumpReport {
         writer.newLine();
         writer.write("minLuckPermsWeight: " + settings.getMinLuckPermsWeight());
         writer.newLine();
+        writer.write("tabRefreshTicks: " + settings.getTabRefreshTicks());
+        writer.newLine();
+        writer.write("accuratePing: " + settings.getAccuratePing());
+        writer.newLine();
         writer.write("Thresholds:");
         writer.newLine();
         for (PingSettings.ThresholdTier tier : PingSettings.ThresholdTier.values()) {
@@ -141,16 +145,17 @@ public final class PingDumpReport {
 
         for (ServerPlayer player : players) {
             String name = FabricCompat.getProfileName(player);
-            int ping = player.connection.latency();
+            int ping = PingUtils.currentPing(player);
             PingUtils.PingQuality quality = PingUtils.getPingQuality(ping);
             boolean isOp = opNames.contains(name);
             writer.write(String.format(Locale.ROOT,
-                    "- %s | uuid=%s | ping=%dms | quality=%s | op=%s",
+                    "- %s | uuid=%s | ping=%dms | quality=%s | op=%s%s",
                     name,
                     player.getUUID(),
                     ping,
                     quality.quality(),
-                    isOp));
+                    isOp,
+                    PingUtils.statsSuffix(player)));
             writer.newLine();
         }
         writer.newLine();

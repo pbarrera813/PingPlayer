@@ -3,6 +3,7 @@
 	"package": "player.ping.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
+		"ServerCommonPacketListenerImplMixin",
 		"ServerPlayerMixin"
 	],
 	"injectors": {

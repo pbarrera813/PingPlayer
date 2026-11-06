@@ -66,6 +66,8 @@ public class PingSettings {
     private boolean showPingOnTab = true;
     private boolean debugPermissionChecks = false;
     private int minLuckPermsWeight = 8;
+    private int tabRefreshTicks = 20;
+    private boolean accuratePing = true;
     private Path configFile;
 
     private PingSettings() {}
@@ -93,30 +95,7 @@ public class PingSettings {
                 return;
             }
 
-            List<String> rawLines = Files.readAllLines(configFile, StandardCharsets.UTF_8);
-            StringBuilder jsonBuilder = new StringBuilder();
-            for (String line : rawLines) {
-                String trimmed = line.trim();
-                if (trimmed.startsWith("#") || trimmed.startsWith("//")) {
-                    continue;
-                }
-                jsonBuilder.append(line).append(System.lineSeparator());
-            }
-
-            JsonObject root = JsonParser.parseString(jsonBuilder.toString()).getAsJsonObject();
-            pingThresholds = loadThresholds(root.get("pingThresholds"));
-            if (root.has("showPingOnTab") && root.get("showPingOnTab").isJsonPrimitive()) {
-                showPingOnTab = root.get("showPingOnTab").getAsBoolean();
-            }
-            if (root.has("debugPermissionChecks") && root.get("debugPermissionChecks").isJsonPrimitive()) {
-                debugPermissionChecks = root.get("debugPermissionChecks").getAsBoolean();
-            }
-            if (root.has("minLuckPermsWeight") && root.get("minLuckPermsWeight").isJsonPrimitive()) {
-                int loadedWeight = root.get("minLuckPermsWeight").getAsInt();
-                if (loadedWeight >= 0) {
-                    minLuckPermsWeight = loadedWeight;
-                }
-            }
+            readFile();
 
             // Re-save to normalize any legacy/partial configuration.
             saveCurrentConfig();
@@ -127,10 +106,57 @@ public class PingSettings {
             showPingOnTab = true;
             debugPermissionChecks = false;
             minLuckPermsWeight = 8;
+            tabRefreshTicks = 20;
+            accuratePing = true;
             FabricCompat.debug("config", "Fell back to defaults after config load error: %s", e.getClass().getSimpleName());
         }
 
         logConfiguration();
+    }
+
+    public synchronized void reload() throws IOException {
+        readFile();
+        saveCurrentConfig();
+        logConfiguration();
+        FabricCompat.debug("config", "Config reloaded from %s", configFile);
+    }
+
+    private void readFile() throws IOException {
+        StringBuilder jsonBuilder = new StringBuilder();
+        for (String line : Files.readAllLines(configFile, StandardCharsets.UTF_8)) {
+            String trimmed = line.trim();
+            if (!trimmed.startsWith("#") && !trimmed.startsWith("//")) {
+                jsonBuilder.append(line).append(System.lineSeparator());
+            }
+        }
+
+        // Everything is parsed before any field is assigned, so a bad file never leaves a half-applied config.
+        JsonObject root = JsonParser.parseString(jsonBuilder.toString()).getAsJsonObject();
+        Map<ThresholdTier, ThresholdRange> thresholds = loadThresholds(root.get("pingThresholds"));
+        boolean tab = readBoolean(root, "showPingOnTab", showPingOnTab);
+        boolean debug = readBoolean(root, "debugPermissionChecks", debugPermissionChecks);
+        boolean accurate = readBoolean(root, "accuratePing", accuratePing);
+        int weight = readInt(root, "minLuckPermsWeight", minLuckPermsWeight, 0);
+        int refresh = readInt(root, "tabRefreshTicks", tabRefreshTicks, 1);
+
+        pingThresholds = thresholds;
+        showPingOnTab = tab;
+        debugPermissionChecks = debug;
+        accuratePing = accurate;
+        minLuckPermsWeight = weight;
+        tabRefreshTicks = refresh;
+    }
+
+    private static boolean readBoolean(JsonObject root, String key, boolean fallback) {
+        return root.has(key) && root.get(key).isJsonPrimitive() ? root.get(key).getAsBoolean() : fallback;
+    }
+
+    private static int readInt(JsonObject root, String key, int fallback, int min) {
+        if (!root.has(key) || !root.get(key).isJsonPrimitive()) {
+            return fallback;
+        }
+        int value = root.get(key).getAsInt();
+        return value >= min ? value : fallback;
     }
 
     public synchronized void updateThreshold(ThresholdTier tier, Integer min, Integer max) throws IOException {
@@ -190,6 +216,14 @@ public class PingSettings {
         return debugPermissionChecks;
     }
 
+    public synchronized int getTabRefreshTicks() {
+        return tabRefreshTicks;
+    }
+
+    public synchronized boolean getAccuratePing() {
+        return accuratePing;
+    }
+
     public synchronized int getMinLuckPermsWeight() {
         return minLuckPermsWeight;
     }
@@ -228,6 +262,8 @@ public class PingSettings {
         root.addProperty("showPingOnTab", showPingOnTab);
         root.addProperty("debugPermissionChecks", debugPermissionChecks);
         root.addProperty("minLuckPermsWeight", minLuckPermsWeight);
+        root.addProperty("tabRefreshTicks", tabRefreshTicks);
+        root.addProperty("accuratePing", accuratePing);
 
         try (Writer writer = Files.newBufferedWriter(configFile)) {
             writer.write("# PingPlayer mod created by Phoenix_28, port to Fabric of the original paper plugin by HoneyBerries");
@@ -351,6 +387,7 @@ public class PingSettings {
         PlayerPing.LOGGER.info("Showing ping on tab: {}", showPingOnTab);
         PlayerPing.LOGGER.info("Debug mode: {}", debugPermissionChecks);
         PlayerPing.LOGGER.info("Minimum LuckPerms weight for admin access: {}", minLuckPermsWeight);
+        PlayerPing.LOGGER.info("Tab refresh every {} ticks, accurate ping sampling: {}", tabRefreshTicks, accuratePing);
     }
 
     private static Map<ThresholdTier, ThresholdRange> createDefaultThresholds() {

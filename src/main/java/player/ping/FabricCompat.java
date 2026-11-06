@@ -29,32 +29,6 @@ public final class FabricCompat {
 
     private FabricCompat() {}
 
-    public static boolean hasPermission(CommandSourceStack source, int level) {
-        if (level <= 0) {
-            return true;
-        }
-
-        if (source.getPlayer() == null) {
-            debugPermission(source, "hasPermission-console-" + level, "hasPermission(level=%d) -> true (console source)", level);
-            return true;
-        }
-
-        boolean nativeAllowed = checkNativePermissionLevel(source, level);
-        if (nativeAllowed) {
-            debugPermission(source, "hasPermission-native-true-" + level, "hasPermission(level=%d) -> true (native CommandSourceStack permission check)", level);
-            return true;
-        }
-
-        if (level >= 2) {
-            boolean adminAllowed = hasAdminPermission(source);
-            debugPermission(source, "hasPermission-admin-fallback-" + level, "hasPermission(level=%d) -> %s (admin fallback check)", level, adminAllowed);
-            return adminAllowed;
-        }
-
-        debugPermission(source, "hasPermission-native-false-" + level, "hasPermission(level=%d) -> false (native CommandSourceStack permission check)", level);
-        return false;
-    }
-
     public static boolean hasAdminPermission(CommandSourceStack source) {
         if (source.getPlayer() == null) {
             debugPermission(source, "hasAdminPermission-console", "hasAdminPermission -> true (console source)");
@@ -251,34 +225,6 @@ public final class FabricCompat {
         synchronized (RECENT_EVENTS) {
             return new ArrayList<>(RECENT_EVENTS);
         }
-    }
-
-    private static boolean checkNativePermissionLevel(CommandSourceStack source, int level) {
-        try {
-            Method hasPermission = source.getClass().getMethod("hasPermission", int.class);
-            Object result = hasPermission.invoke(source, level);
-            if (result instanceof Boolean allowed) {
-                return allowed;
-            }
-        } catch (NoSuchMethodException ignored) {
-            // Continue with alternate method names used by other mappings.
-        } catch (Exception e) {
-            debugPermission(source, "native-permission-error-hasPermission", "Native hasPermission lookup failed: %s", e.getClass().getSimpleName());
-        }
-
-        try {
-            Method hasPermissionLevel = source.getClass().getMethod("hasPermissionLevel", int.class);
-            Object result = hasPermissionLevel.invoke(source, level);
-            if (result instanceof Boolean allowed) {
-                return allowed;
-            }
-        } catch (NoSuchMethodException ignored) {
-            // Continue with admin fallback logic.
-        } catch (Exception e) {
-            debugPermission(source, "native-permission-error-hasPermissionLevel", "Native hasPermissionLevel lookup failed: %s", e.getClass().getSimpleName());
-        }
-
-        return false;
     }
 
     private static void debugPermission(CommandSourceStack source, String keySuffix, String message, Object... args) {
