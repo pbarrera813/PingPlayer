@@ -17,7 +17,6 @@ public final class IPCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("ip")
-                .requires(source -> NeoForgeCompat.hasPermission(source, 0))
                 .executes(IPCommand::executeSelfIP)
                 .then(Commands.literal("help")
                         .executes(IPCommand::executeHelp))
@@ -46,7 +45,7 @@ public final class IPCommand {
         }
 
         String ipAddress = normalizeIpAddress(address);
-        Component message = Component.literal("Your public IP is: ")
+        Component message = Component.literal("Your IP (as seen by the server): ")
                 .withStyle(style -> style.withColor(ChatFormatting.BLUE))
                 .append(Component.literal(ipAddress)
                         .withStyle(style -> style.withColor(ChatFormatting.AQUA)));
@@ -76,7 +75,7 @@ public final class IPCommand {
             }
 
             String finalIp = normalizeIpAddress(address);
-            Component message = Component.literal(NeoForgeCompat.getProfileName(target) + "'s public IP is: ")
+            Component message = Component.literal(NeoForgeCompat.getProfileName(target) + "'s IP (as seen by the server): ")
                     .withStyle(style -> style.withColor(ChatFormatting.BLUE))
                     .append(Component.literal(finalIp)
                             .withStyle(style -> style.withColor(ChatFormatting.AQUA)));
@@ -98,11 +97,11 @@ public final class IPCommand {
                 .withStyle(style -> style.withColor(ChatFormatting.DARK_AQUA)), false);
         source.sendSuccess(() -> Component.literal("  /ip")
                 .withStyle(style -> style.withColor(ChatFormatting.AQUA).withBold(true))
-                .append(Component.literal("  Show your own public IP.")
+                .append(Component.literal("  Show your own IP as seen by the server.")
                         .withStyle(style -> style.withColor(ChatFormatting.GRAY).withBold(false))), false);
         source.sendSuccess(() -> Component.literal("  /ip <player>")
                 .withStyle(style -> style.withColor(ChatFormatting.AQUA).withBold(true))
-                .append(Component.literal("  Show another player's public IP (admins only).")
+                .append(Component.literal("  Show another player's IP as seen by the server (admins only).")
                         .withStyle(style -> style.withColor(ChatFormatting.GRAY).withBold(false))), false);
         source.sendSuccess(() -> Component.literal("  /ip help")
                 .withStyle(style -> style.withColor(ChatFormatting.AQUA).withBold(true))
@@ -113,7 +112,6 @@ public final class IPCommand {
 
     private static String normalizeIpAddress(SocketAddress address) {
         String ipAddress = address.toString();
-        // Remove leading '/' and trailing ':port' if present.
         if (ipAddress.startsWith("/")) {
             ipAddress = ipAddress.substring(1);
         }

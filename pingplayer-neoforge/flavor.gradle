@@ -1,0 +1,101 @@
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name + "-" + project.jar_suffix
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(project.java_version as int)
+
+def shared = rootProject.file('pingplayer-neoforge')
+
+sourceSets {
+    main {
+        java.srcDirs = ["${shared}/src/main/java", "${shared}/src/hook-${project.hook}/java"]
+        resources.srcDirs = ["${shared}/src/main/resources"]
+    }
+    test.java.srcDir rootProject.file('src/test/java')
+}
+
+neoForge {
+    version = project.neo_version
+
+    runs {
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+
+        server {
+            server()
+            programArgument '--nogui'
+        }
+    }
+
+    mods {
+        "${project.mod_id}" {
+            sourceSet sourceSets.main
+        }
+    }
+
+    unitTest {
+        enable()
+        testedMod = mods."${project.mod_id}"
+    }
+}
+
+repositories {
+    maven { url = 'https://maven.offsetmonkey538.top/releases' }
+}
+
+dependencies {
+    if (project.hasProperty('placeholder_dep')) {
+        compileOnly project.placeholder_dep
+    }
+    testImplementation platform("org.junit:junit-bom:5.13.4")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+test {
+    useJUnitPlatform()
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    def replaceProperties = [
+            mod_id                : project.mod_id,
+            mod_name              : project.mod_name,
+            mod_license           : project.mod_license,
+            mod_version           : project.mod_version,
+            mod_authors           : project.mod_authors,
+            mod_description       : project.mod_description,
+            minecraft_version_range: project.minecraft_version_range,
+            neo_version_range     : project.neo_version_range,
+            loader_version_range  : project.loader_version_range
+    ]
+    inputs.properties replaceProperties
+
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand replaceProperties
+    }
+}
+
+tasks.named('jar', Jar).configure {
+    manifest {
+        attributes([
+                'Specification-Title'    : project.mod_id,
+                'Specification-Version'  : project.mod_version,
+                'Implementation-Title'   : project.mod_name,
+                'Implementation-Version' : project.mod_version,
+                'Implementation-Vendor'  : project.mod_authors
+        ])
+    }
+
+    from(rootProject.file("LICENSE")) {
+        rename { "${it}_${project.base.archivesName.get()}" }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}

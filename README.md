@@ -10,13 +10,16 @@ This is a port of the original [PingPlayer](https://github.com/HoneyBerries/Ping
 |--------|-----------|----------|-------|
 | Fabric | `1.21.x` | `player-ping-1.21.x-1.2.0.jar` | Java 21, Fabric Loader 0.18.4 or newer, Fabric API |
 | Fabric | `26.1` - `26.3` | `player-ping-26.x-1.2.0.jar` | Java 25, Fabric Loader 0.20.1 or newer, Fabric API |
-| NeoForge | WIP | | |
+| NeoForge | `1.21.1` - `1.21.10` | `player-ping-neoforge-1.21.1-1.21.10-1.2.0.jar` | Java 21, NeoForge 21 - 21.10 |
+| NeoForge | `1.21.11` | `player-ping-neoforge-1.21.11-1.2.0.jar` | Java 21, NeoForge 21.11 |
+| NeoForge | `26.1` - `26.3` | `player-ping-neoforge-26.x-1.2.0.jar` | Java 25, NeoForge 26.1 or newer 26.x |
 
-[Placeholder API](https://placeholders.pb4.eu/) is optional (see Placeholders).
+[Placeholder API](https://placeholders.pb4.eu/) is optional (see Placeholders). On NeoForge it is the [NeoForge port](https://github.com/OffsetMods538/TextPlaceholderAPI-NeoForge), which exists only for Minecraft `1.21.11` and `26.x`.
 
 ## What's New in 1.2.0
 
 - Works on Minecraft `26.1` - `26.3`, and still on every `1.21.x`
+- Now available on NeoForge: `1.21.1` - `1.21.10`, `1.21.11` and `26.1` - `26.3`
 - More accurate ping: the server measures the connection itself once per second, so `/ping` now also shows jitter (how much the ping jumps around) and packet loss
 - The tab list keeps team colors and prefixes instead of replacing the player's name
 - The tab list refreshes once per second instead of 20 times per second, which is lighter on busy servers

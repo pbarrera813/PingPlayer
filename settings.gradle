@@ -20,6 +20,8 @@ pluginManagement {
 include 'fabric-legacy'
 include 'pingplayer-forge'
 include 'pingplayer-neoforge'
+include 'pingplayer-neoforge-1.21.11'
+include 'pingplayer-neoforge-26'
 
 
 

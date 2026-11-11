@@ -1,12 +1,23 @@
 package player.ping;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.server.level.ServerPlayer;
 
 public final class PingUtils {
 
     private PingUtils() {}
 
     public record PingQuality(ChatFormatting color, String quality) {}
+
+    public static int currentPing(ServerPlayer player) {
+        Integer sampled = PingSampler.currentMs(player.getUUID());
+        return sampled != null ? sampled : player.connection.latency();
+    }
+
+    public static String statsSuffix(ServerPlayer player) {
+        PingSampler.Stats stats = PingSampler.stats(player.getUUID());
+        return stats == null ? "" : " (jitter " + stats.jitterMs() + " ms, loss " + stats.lossPercent() + "%)";
+    }
 
     public static PingQuality getPingQuality(int ping) {
         PingSettings.ThresholdTier tier = PingSettings.getInstance().getThresholdTier(ping);
